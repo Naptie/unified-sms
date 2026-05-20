@@ -50,5 +50,4 @@ const app = new Elysia()
   })
   .listen(config.port);
 
-console.log(`unified-sms listening on http://localhost:${app.server?.port}`);
-console.log(`Swagger UI → http://localhost:${app.server?.port}/swagger`);
+console.log(`Listening on http://localhost:${app.server?.port}`);
