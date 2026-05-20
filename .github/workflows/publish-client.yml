@@ -27,11 +27,10 @@ jobs:
       - name: Generate type declarations
         run: |
           mkdir -p /tmp/client-dist
-          bunx dts-bundle-generator \
-            --out-file /tmp/client-dist/index.d.ts \
-            --project tsconfig.dts.json \
-            --no-check \
-            client/src/index.ts
+          bunx tsup client/src/index.ts \
+            --dts-only \
+            --out-dir /tmp/client-dist \
+            --tsconfig tsconfig.dts.json
 
       # Minimal runtime: consumers supply their own @elysia/eden install
       - name: Write runtime

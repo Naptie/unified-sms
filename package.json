@@ -22,7 +22,7 @@
   "devDependencies": {
     "@elysia/eden": "^1.4.10",
     "bun-types": "latest",
-    "dts-bundle-generator": "^3.0.0",
+    "tsup": "^8.0.0",
     "oxfmt": "^0.51.0",
     "typescript": "^6.0.3"
   }
