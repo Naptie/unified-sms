@@ -50,4 +50,6 @@ const app = new Elysia()
   })
   .listen({ hostname: config.hostname, port: config.port });
 
+export type App = typeof app;
+
 console.log(`Listening on http://${config.hostname}:${app.server?.port}`);
