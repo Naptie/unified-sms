@@ -29,7 +29,7 @@ jobs:
           mkdir -p /tmp/client-dist
           bunx dts-bundle-generator \
             --out-file /tmp/client-dist/index.d.ts \
-            --project tsconfig.json \
+            --project tsconfig.dts.json \
             --no-check \
             client/src/index.ts
 

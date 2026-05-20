@@ -1,4 +1,5 @@
 import { treaty } from "@elysia/eden";
+import type { Treaty } from "@elysia/eden";
 
 import type { App } from "../../src/index.js";
 
@@ -24,7 +25,7 @@ export type { App };
  * });
  * ```
  */
-export const createClient = (baseUrl: string, config?: Parameters<typeof treaty>[1]) =>
+export const createClient = (baseUrl: string, config?: Treaty.Config): Treaty.Create<App> =>
   treaty<App>(baseUrl, config);
 
 export type Client = ReturnType<typeof createClient>;
