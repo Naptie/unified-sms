@@ -3,7 +3,7 @@ import * as $OpenApi from "@alicloud/openapi-client";
 import * as $Util from "@alicloud/tea-util";
 
 import { config } from "../config.js";
-import type { SendCodeResult, SmsProvider, VerifyCodeResult } from "./types.js";
+import type { SendCodeOptions, SendCodeResult, SmsProvider, VerifyCodeResult } from "./types.js";
 
 /**
  * Aliyun (Alibaba Cloud) Dypnsapi SMS provider.
@@ -22,13 +22,22 @@ export class AliyunProvider implements SmsProvider {
     this.client = new Dypnsapi20170525(apiConfig);
   }
 
-  async sendCode(phoneNumber: string, countryCode: string): Promise<SendCodeResult> {
+  async sendCode(
+    phoneNumber: string,
+    countryCode: string,
+    options?: SendCodeOptions,
+  ): Promise<SendCodeResult> {
+    const mins = (options?.validTime ?? 300) / 60;
+    const minStr = Number.isInteger(mins) ? String(mins) : mins.toFixed(1);
+
     const request = new $Dypnsapi20170525.SendSmsVerifyCodeRequest({
       phoneNumber,
       countryCode,
       signName: config.aliyun.signName,
       templateCode: config.aliyun.templateCode,
-      templateParam: config.aliyun.templateParam,
+      templateParam: `{"code":"##code##","min":"${minStr}"}`,
+      ...(options?.codeLength !== undefined && { codeLength: options.codeLength }),
+      ...(options?.validTime !== undefined && { validTime: options.validTime }),
     });
     const runtime = new $Util.RuntimeOptions({});
 

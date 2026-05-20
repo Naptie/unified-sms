@@ -12,6 +12,5 @@ export const config = {
     accessKeySecret: requireEnv("ALIYUN_ACCESS_KEY_SECRET"),
     signName: requireEnv("ALIYUN_SIGN_NAME"),
     templateCode: requireEnv("ALIYUN_TEMPLATE_CODE"),
-    templateParam: process.env.ALIYUN_TEMPLATE_PARAM ?? '{"code":"##code##"}',
   },
 } as const;

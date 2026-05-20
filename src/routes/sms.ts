@@ -18,6 +18,25 @@ const SendBody = t.Object({
     examples: ["86"],
     default: "86",
   }),
+  codeLength: t.Optional(
+    t.Integer({
+      description:
+        "Desired OTP length. Aliyun: 4–8 (default 4). " +
+        "Ignored by providers that set code length at the service level (e.g. Twilio).",
+      minimum: 4,
+      maximum: 10,
+      examples: [6],
+    }),
+  ),
+  validTime: t.Optional(
+    t.Integer({
+      description:
+        "How long the code stays valid, in seconds. Aliyun: default 300. " +
+        "Ignored by providers that set TTL at the service level (e.g. Twilio).",
+      minimum: 1,
+      examples: [300],
+    }),
+  ),
 });
 
 const VerifyBody = t.Object({
@@ -43,7 +62,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
   .post(
     "/send",
     async ({ body, set }) => {
-      const { phoneNumber, countryCode } = body;
+      const { phoneNumber, countryCode, codeLength, validTime } = body;
 
       if (!isSupportedCountry(countryCode)) {
         set.status = 422;
@@ -55,7 +74,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
 
       const provider = getProvider(countryCode)!;
       try {
-        const result = await provider.sendCode(phoneNumber, countryCode);
+        const result = await provider.sendCode(phoneNumber, countryCode, { codeLength, validTime });
         return { success: true as const, requestId: result.requestId };
       } catch (err: unknown) {
         console.error("[sms/send]", err instanceof Error ? err.message : err);
