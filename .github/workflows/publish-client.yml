@@ -29,6 +29,7 @@ jobs:
           mkdir -p /tmp/client-dist
           bunx tsup client/src/index.ts \
             --dts-only \
+            --format esm \
             --out-dir /tmp/client-dist \
             --tsconfig tsconfig.dts.json
 
