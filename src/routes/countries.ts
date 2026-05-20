@@ -25,7 +25,7 @@ export const countriesRoutes = new Elysia({ prefix: "/countries" })
       200: t.Array(CountrySchema),
     },
     detail: {
-      summary: "List supported countries",
+      summary: "List supported countries/regions",
       description:
         "Returns all country/region dial codes that this hub currently supports for SMS delivery.",
       tags: ["Countries"],
