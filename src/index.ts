@@ -48,6 +48,6 @@ const app = new Elysia()
     set.status = 500;
     return { success: false, error: "Internal server error" };
   })
-  .listen(config.port);
+  .listen({ hostname: config.hostname, port: config.port });
 
-console.log(`Listening on http://localhost:${app.server?.port}`);
+console.log(`Listening on http://${config.hostname}:${app.server?.port}`);

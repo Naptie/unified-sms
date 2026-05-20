@@ -5,6 +5,7 @@ function requireEnv(key: string): string {
 }
 
 export const config = {
+  hostname: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.PORT) || 3000,
   apiSecret: requireEnv("API_SECRET"),
   aliyun: {
