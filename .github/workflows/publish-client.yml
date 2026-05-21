@@ -1,4 +1,4 @@
-name: Publish Eden Client
+name: Publish Eden client
 
 on:
   push:

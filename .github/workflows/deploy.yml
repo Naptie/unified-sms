@@ -1,0 +1,28 @@
+name: Deploy
+run-name: Deploy application
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  webhook-deploy:
+    name: Deploy via webhook
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call deployment webhook
+        env:
+          WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_SECRET }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
+          -d "{\"run_id\":\"${RUN_ID}\"}" \
+          "${WEBHOOK_URL}"
