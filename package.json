@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --target bun --external '@alicloud/dypnsapi20170525' --external '@alicloud/openapi-client' --external '@alicloud/tea-typescript' --external '@alicloud/tea-util' --outfile build/index.js",
     "typecheck": "tsc --noEmit",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
@@ -22,8 +23,8 @@
   "devDependencies": {
     "@elysia/eden": "^1.4.10",
     "bun-types": "latest",
-    "tsup": "^8.0.0",
     "oxfmt": "^0.51.0",
+    "tsup": "^8.0.0",
     "typescript": "^6.0.3"
   }
 }
