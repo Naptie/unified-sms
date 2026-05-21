@@ -26,13 +26,28 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Bundle application
-        run: bun build src/index.ts --target bun --outfile build/index.js
+        # @alicloud/* packages are kept external: they lack __esModule=true so bun's
+        # bundler can't correctly resolve their default CJS export at bundle time.
+        # They are restored via 'bun install --production' on the server instead.
+        run: |
+          bun build src/index.ts \
+            --target bun \
+            --external "@alicloud/dypnsapi20170525" \
+            --external "@alicloud/openapi-client" \
+            --external "@alicloud/tea-typescript" \
+            --external "@alicloud/tea-util" \
+            --outfile build/index.js
+
+      - name: Stage artifact
+        run: |
+          cp package.json build/package.json
+          cp bun.lock build/bun.lock
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: build
-          path: build/index.js
+          path: build/
           retention-days: 7
 
   deploy:
