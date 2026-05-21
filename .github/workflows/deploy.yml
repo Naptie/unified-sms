@@ -12,8 +12,32 @@ defaults:
     shell: bash
 
 jobs:
-  webhook-deploy:
+  build:
+    name: Build application
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Bundle application
+        run: bun build src/index.ts --target bun --outfile build/index.js
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build/index.js
+          retention-days: 7
+
+  deploy:
     name: Deploy via webhook
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Call deployment webhook
