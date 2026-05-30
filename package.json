@@ -24,7 +24,7 @@
     "@elysia/eden": "^1.4.10",
     "bun-types": "latest",
     "oxfmt": "^0.51.0",
-    "tsup": "^8.0.0",
+    "tsup": "^8.5.1",
     "typescript": "^6.0.3"
   }
 }
