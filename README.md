@@ -6,7 +6,7 @@ Built with [Bun](https://bun.sh) and [Elysia](https://elysiajs.com). A publishab
 
 ## Overview
 
-- **Three endpoints:** list supported countries/regions, send an OTP, verify an OTP
+- **Main features:** list supported countries/regions, send an OTP, verify an OTP
 - **Provider-based routing:** each dial code maps to exactly one provider; adding a new region means adding one file and one registry entry
 - **Bearer token auth** on every route — intended to be called only from trusted server-side code on the same machine
 - **Interactive API docs** at `/swagger` (Swagger UI, OpenAPI 3.0)
