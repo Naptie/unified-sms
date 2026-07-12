@@ -211,12 +211,7 @@ To support a new country or region:
 Add `src/providers/<name>.ts` implementing the `SmsProvider` interface:
 
 ```ts
-import type {
-  SendCodeOptions,
-  SendCodeResult,
-  SmsProvider,
-  VerifyCodeResult,
-} from "./types.js";
+import type { SendCodeOptions, SendCodeResult, SmsProvider, VerifyCodeResult } from "./types.js";
 
 export class TwilioProvider implements SmsProvider {
   async sendCode(
