@@ -95,7 +95,15 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
         }
       }
 
-      const provider = getProvider(dialCode)!;
+      const provider = getProvider(dialCode);
+      if (!provider) {
+        console.error(`[sms/send] no SMS provider registered for dial code +${dialCode}`);
+        set.status = 500;
+        return {
+          success: false as const,
+          error: "No SMS provider is registered for this dial code",
+        };
+      }
       try {
         const result = await provider.sendCode(phoneNumber, dialCode, { codeLength, validTime });
         return { success: true as const, method: "sms" as const, requestId: result.requestId };
@@ -130,6 +138,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
           }),
         ]),
         422: ErrorResponse,
+        500: ErrorResponse,
         502: ErrorResponse,
       },
       detail: {
@@ -162,7 +171,15 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
         };
       }
 
-      const provider = getProvider(dialCode)!;
+      const provider = getProvider(dialCode);
+      if (!provider) {
+        console.error(`[sms/verify] no SMS provider registered for dial code +${dialCode}`);
+        set.status = 500;
+        return {
+          success: false as const,
+          error: "No SMS provider is registered for this dial code",
+        };
+      }
       try {
         const result = await provider.verifyCode(phoneNumber, dialCode, code);
         return { success: true as const, verified: result.verified };
@@ -185,6 +202,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
           }),
         }),
         422: ErrorResponse,
+        500: ErrorResponse,
         502: ErrorResponse,
       },
       detail: {

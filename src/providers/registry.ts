@@ -32,7 +32,11 @@ export const SUPPORTED_REGIONS: RegionInfo[] = REGIONS.map((region) => ({
 const instances = new Map<string, SmsProvider>();
 
 /**
- * Returns the SMS provider for the given dial code, or `undefined` if unsupported.
+ * Returns the SMS provider for the given dial code, or `undefined` if no
+ * provider is registered for it. A missing provider while the channel logic
+ * (resolveChannel) has classified the dial code as SMS-backed indicates a
+ * server misconfiguration — callers must handle `undefined` explicitly
+ * (e.g. respond with a clear error) instead of asserting it away.
  * To add a new provider (e.g. Twilio for +1), add a case here and update SUPPORTED_REGIONS.
  */
 export function getProvider(dialCode: string): SmsProvider | undefined {
