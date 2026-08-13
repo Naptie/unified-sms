@@ -1,3 +1,5 @@
+import type { Locale } from "../../i18n/index.js";
+
 /** Subset of the Telegram Bot API Update model used by the verification flow. */
 export interface TelegramUpdate {
   update_id: number;
@@ -49,6 +51,8 @@ export interface VerificationSession {
   phoneNumber: string;
   /** Dial code without the leading "+" */
   dialCode: string;
+  /** UI language for the bot conversation and API error messages */
+  locale: Locale;
   status: SessionStatus;
   createdAt: number;
   expiresAt: number;

@@ -1,59 +1,72 @@
 import { config } from "../../config.js";
+import { getT, isLocale, type Locale } from "../../i18n/index.js";
 import { deleteWebhook, sendMessage, setWebhook } from "./client.js";
 import { toExpectedInternational, toSharedInternational } from "./phone.js";
 import { sessionStore } from "./sessions.js";
 import type { TelegramMessage, TelegramUpdate } from "./types.js";
 import { resolveBotUsername } from "./verification.js";
 
-const CONTACT_KEYBOARD = {
-  keyboard: [[{ text: "Share Phone Number", request_contact: true }]],
-  one_time_keyboard: true,
-  resize_keyboard: true,
-};
+function contactKeyboard(locale: Locale) {
+  const t = getT(locale);
+  return {
+    keyboard: [[{ text: t("bot.keyboard.share"), request_contact: true }]],
+    one_time_keyboard: true,
+    resize_keyboard: true,
+  };
+}
 
 const START_COMMAND_PREFIX = "/start";
+/** Separator between the locale and the session id in the deep link start payload. */
+const PAYLOAD_SEPARATOR = ".";
+
+interface StartPayload {
+  locale: Locale;
+  sessionId: string;
+}
+
+/**
+ * Parses a /start payload. Current format: `<locale>.<sessionId>` (e.g. `zh.sess_…`).
+ * Falls back to treating the whole payload as a bare session id for legacy links.
+ */
+function parseStartPayload(payload: string): StartPayload {
+  const separator = payload.indexOf(PAYLOAD_SEPARATOR);
+  if (separator !== -1) {
+    const maybeLocale = payload.slice(0, separator);
+    if (isLocale(maybeLocale)) {
+      return { locale: maybeLocale, sessionId: payload.slice(separator + 1) };
+    }
+  }
+  return { locale: "en", sessionId: payload };
+}
 
 async function handleStart(message: TelegramMessage): Promise<void> {
   const chatId = message.chat.id;
-  const payload = (message.text ?? "").slice(START_COMMAND_PREFIX.length).trim();
+  const { locale, sessionId } = parseStartPayload(
+    (message.text ?? "").slice(START_COMMAND_PREFIX.length).trim(),
+  );
+  const t = getT(locale);
 
-  if (!payload) {
-    await sendMessage(
-      chatId,
-      "Start the verification on the website to get your personal verification link.",
-    );
+  if (!sessionId) {
+    await sendMessage(chatId, t("bot.start.noPayload"));
     return;
   }
 
-  const session = sessionStore.get(payload);
+  const session = sessionStore.get(sessionId);
   if (!session) {
-    await sendMessage(
-      chatId,
-      "This verification link is invalid. Please return to the website and start again.",
-    );
+    await sendMessage(chatId, t("bot.start.invalid"));
     return;
   }
   if (session.status !== "pending") {
-    const text =
-      session.status === "verified"
-        ? "This link has already been verified. You can return to the app."
-        : "This verification link has expired. Please return to the website and start again.";
+    const text = session.status === "verified" ? t("bot.start.verified") : t("bot.start.expired");
     await sendMessage(chatId, text);
     return;
   }
   if (!sessionStore.bindChat(session.id, chatId)) {
-    await sendMessage(
-      chatId,
-      "This verification link was already claimed by another Telegram account. Please return to the website and start again.",
-    );
+    await sendMessage(chatId, t("bot.start.claimed"));
     return;
   }
 
-  await sendMessage(
-    chatId,
-    "Please click the 'Share Phone Number' button below to verify your account.",
-    CONTACT_KEYBOARD,
-  );
+  await sendMessage(chatId, t("bot.start.prompt"), contactKeyboard(session.locale));
 }
 
 async function handleContact(message: TelegramMessage): Promise<void> {
@@ -62,11 +75,9 @@ async function handleContact(message: TelegramMessage): Promise<void> {
   if (!contact) return;
 
   const session = sessionStore.getPendingByChatId(chatId);
+  const t = getT(session?.locale ?? "en");
   if (!session) {
-    await sendMessage(
-      chatId,
-      "No active verification found. Return to the website and tap the verification link to start.",
-    );
+    await sendMessage(chatId, t("bot.contact.noSession"));
     return;
   }
 
@@ -75,33 +86,23 @@ async function handleContact(message: TelegramMessage): Promise<void> {
   // session by forwarding someone else's number from their address book.
   const senderId = message.from?.id;
   if (contact.user_id === undefined || senderId === undefined || contact.user_id !== senderId) {
-    await sendMessage(
-      chatId,
-      "You must share your own phone number using the 'Share Phone Number' button.",
-    );
+    await sendMessage(chatId, t("bot.contact.notOwn"));
     return;
   }
 
   const shared = toSharedInternational(contact.phone_number);
   const expected = toExpectedInternational(session.dialCode, session.phoneNumber);
   if (shared !== expected) {
-    await sendMessage(
-      chatId,
-      `The number you shared (+${shared}) does not match the number you entered on the website. ` +
-        "Please return to the website and start over with the number registered on this Telegram account.",
-    );
+    await sendMessage(chatId, t("bot.contact.numberMismatch", { shared }));
     return;
   }
 
   if (!sessionStore.markVerified(session.id, `+${expected}`)) {
-    await sendMessage(
-      chatId,
-      "This verification session is no longer valid. Please return to the website and start again.",
-    );
+    await sendMessage(chatId, t("bot.contact.sessionInvalid"));
     return;
   }
 
-  await sendMessage(chatId, "Verified! You can now return to the app.", { remove_keyboard: true });
+  await sendMessage(chatId, t("bot.contact.verified"), { remove_keyboard: true });
 }
 
 /** Registers the webhook with Telegram and warms the cached bot username. */
@@ -136,10 +137,7 @@ export async function handleUpdate(update: TelegramUpdate): Promise<void> {
     } else if ((message.text ?? "").startsWith(START_COMMAND_PREFIX)) {
       await handleStart(message);
     } else {
-      await sendMessage(
-        message.chat.id,
-        "Return to the app and tap the verification link to start.",
-      );
+      await sendMessage(message.chat.id, getT("en")("bot.other.returnToApp"));
     }
   } catch (err) {
     console.error("[telegram] failed to handle update:", err);

@@ -109,12 +109,13 @@ Triggers an OTP to be sent (SMS-backed numbers) or creates a Telegram verificati
 
 **Request body**
 
-| Field         | Type           | Required | Description                                                              |
-| ------------- | -------------- | -------- | ------------------------------------------------------------------------ |
-| `phoneNumber` | string         | ✓        | Phone number without dial code, e.g. `"13800138000"`                     |
-| `dialCode`    | string         | ✓        | Dial code without the `+` sign, e.g. `"86"`                              |
-| `codeLength`  | integer (4–10) |          | OTP digit count. Aliyun default: 4. Ignored for Telegram sessions.       |
-| `validTime`   | integer (≥ 1)  |          | Code TTL in seconds. Aliyun default: 300. Ignored for Telegram sessions. |
+| Field         | Type                 | Required | Description                                                                                                                                                                                                  |
+| ------------- | -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `phoneNumber` | string               | ✓        | Phone number without dial code, e.g. `"13800138000"`                                                                                                                                                         |
+| `dialCode`    | string               | ✓        | Dial code without the `+` sign, e.g. `"86"`                                                                                                                                                                  |
+| `locale`      | `en` \| `zh` \| `ja` |          | Language for error messages and the Telegram bot conversation. Optional — when absent, inferred from the `Accept-Language` request header (q-values and region subtags honored), otherwise defaults to `en`. |
+| `codeLength`  | integer (4–10)       |          | OTP digit count. Aliyun default: 4. Ignored for Telegram sessions.                                                                                                                                           |
+| `validTime`   | integer (≥ 1)        |          | Code TTL in seconds. Aliyun default: 300. Ignored for Telegram sessions.                                                                                                                                     |
 
 **Response `200`** — SMS channel (`method: "sms"`)
 
@@ -129,7 +130,7 @@ Triggers an OTP to be sent (SMS-backed numbers) or creates a Telegram verificati
   "success": true,
   "method": "telegram",
   "sessionId": "abc123",
-  "deepLink": "https://t.me/YourAppVerificationBot?start=abc123",
+  "deepLink": "https://t.me/YourAppVerificationBot?start=zh.abc123",
   "expiresAt": "2026-08-13T10:30:00.000Z",
   "ttl": 600
 }
@@ -145,11 +146,12 @@ Checks whether the provided code is correct and still valid. Verification is del
 
 **Request body**
 
-| Field         | Type   | Required | Description                       |
-| ------------- | ------ | -------- | --------------------------------- |
-| `phoneNumber` | string | ✓        | Same number used in the send call |
-| `dialCode`    | string | ✓        | Dial code without the `+` sign    |
-| `code`        | string | ✓        | OTP code entered by the user      |
+| Field         | Type                 | Required | Description                                                                                                                          |
+| ------------- | -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `phoneNumber` | string               | ✓        | Same number used in the send call                                                                                                    |
+| `dialCode`    | string               | ✓        | Dial code without the `+` sign                                                                                                       |
+| `locale`      | `en` \| `zh` \| `ja` |          | Language for error messages. Optional — when absent, inferred from the `Accept-Language` request header, otherwise defaults to `en`. |
+| `code`        | string               | ✓        | OTP code entered by the user                                                                                                         |
 
 **Response `200`**
 
@@ -164,6 +166,8 @@ Checks whether the provided code is correct and still valid. Verification is del
 ### `GET /sms/status/:sessionId`
 
 Polls the state of a Telegram verification session. Call this every 2–3 seconds after handing the `deepLink` to the user, and stop on `verified` or `expired`.
+
+Accepts an optional `?locale=en|zh|ja` query parameter for the language of error messages; when absent, the `Accept-Language` request header is used, defaulting to `en`.
 
 **Response `200`**
 
@@ -187,8 +191,8 @@ Called by Telegram whenever the bot receives a message. This is the only endpoin
 
 When the hub routes a number to the Telegram channel:
 
-1. The consumer app shows the user the `deepLink` returned by `POST /sms/send` ("click the link below to open our Telegram bot").
-2. The user taps **Start**; the bot binds the session to their Telegram chat and shows a **Share Phone Number** button (Telegram's native `request_contact` keyboard).
+1. The consumer app shows the user the `deepLink` returned by `POST /sms/send` ("click the link below to open our Telegram bot"). The deep link carries the requested `locale` in its `start` payload, so the bot replies in the same language as the app (English, Chinese or Japanese; default English).
+2. The user taps **Start**; the bot binds the session to their Telegram chat and shows a **Share Phone Number** button (Telegram's native `request_contact` keyboard, localized to the session language).
 3. The bot checks the shared contact:
    - `contact.user_id` must equal the sender's Telegram user id, guaranteeing the user shares their own account's number rather than an arbitrary address-book entry;
    - the shared number, normalized to E.164 digits, must match the number entered on the website.

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { Locale } from "../../i18n/index.js";
 import type { VerificationSession } from "./types.js";
 
 const MAX_SESSIONS = 10_000;
@@ -15,12 +16,18 @@ class SessionStore {
   private readonly sessions = new Map<string, VerificationSession>();
   private readonly byChatId = new Map<number, string>();
 
-  create(phoneNumber: string, dialCode: string, ttlSeconds: number): VerificationSession {
+  create(
+    phoneNumber: string,
+    dialCode: string,
+    ttlSeconds: number,
+    locale: Locale,
+  ): VerificationSession {
     const now = Date.now();
     const session: VerificationSession = {
       id: randomUUID().replace(/-/g, ""),
       phoneNumber,
       dialCode,
+      locale,
       status: "pending",
       createdAt: now,
       expiresAt: now + ttlSeconds * 1000,

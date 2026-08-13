@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 
+import { getT, localeFromAcceptLanguage, type Locale } from "../i18n/index.js";
 import { authPlugin } from "../plugins/auth.js";
 import { isValidPhoneEntry } from "../providers/telegram/phone.js";
 import {
@@ -24,6 +25,16 @@ const SendBody = t.Object({
     examples: ["86", "1"],
     default: "86",
   }),
+  locale: t.Optional(
+    t.Enum(
+      { en: "en", zh: "zh", ja: "ja" },
+      {
+        description: "Language for error messages and the Telegram bot conversation",
+        default: "en",
+        examples: ["zh", "ja"],
+      },
+    ),
+  ),
   codeLength: t.Optional(
     t.Integer({
       description:
@@ -54,6 +65,16 @@ const VerifyBody = t.Object({
     examples: ["86"],
     default: "86",
   }),
+  locale: t.Optional(
+    t.Enum(
+      { en: "en", zh: "zh", ja: "ja" },
+      {
+        description: "Language for error messages",
+        default: "en",
+        examples: ["zh", "ja"],
+      },
+    ),
+  ),
   code: t.String({
     description: "The OTP code received via SMS",
     examples: ["123456"],
@@ -66,31 +87,34 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
   // ── POST /sms/send ────────────────────────────────────────────────────────
   .post(
     "/send",
-    async ({ body, set }) => {
+    async ({ body, headers, set }) => {
       const { phoneNumber, dialCode, codeLength, validTime } = body;
+      const locale: Locale =
+        body.locale ?? localeFromAcceptLanguage(headers["accept-language"]) ?? "en";
+      const t = getT(locale);
       const channel = resolveChannel(dialCode);
 
       if (channel === "telegram") {
         if (!isValidPhoneEntry(dialCode, phoneNumber)) {
           set.status = 422;
-          return { success: false as const, error: "Invalid phone number or dial code" };
+          return { success: false as const, error: t("sms.send.invalidPhone") };
         }
         if (!isTelegramEnabled()) {
           set.status = 502;
           return {
             success: false as const,
-            error: "Telegram verification is not configured on this server",
+            error: t("sms.send.telegramUnavailable"),
           };
         }
         try {
-          const handoff = await createVerificationSession(phoneNumber, dialCode);
+          const handoff = await createVerificationSession(phoneNumber, dialCode, locale);
           return { success: true as const, method: "telegram" as const, ...handoff };
         } catch (err: unknown) {
           console.error("[sms/send]", err instanceof Error ? err.message : err);
           set.status = 502;
           return {
             success: false as const,
-            error: "Failed to start verification. Please try again later.",
+            error: t("sms.send.startFailed"),
           };
         }
       }
@@ -101,7 +125,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
         set.status = 500;
         return {
           success: false as const,
-          error: "No SMS provider is registered for this dial code",
+          error: t("sms.send.noProvider"),
         };
       }
       try {
@@ -110,7 +134,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       } catch (err: unknown) {
         console.error("[sms/send]", err instanceof Error ? err.message : err);
         set.status = 502;
-        return { success: false as const, error: "Failed to send SMS. Please try again later." };
+        return { success: false as const, error: t("sms.send.sendFailed") };
       }
     },
     {
@@ -157,17 +181,18 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
   // ── POST /sms/verify ──────────────────────────────────────────────────────
   .post(
     "/verify",
-    async ({ body, set }) => {
+    async ({ body, headers, set }) => {
       const { phoneNumber, dialCode, code } = body;
+      const locale: Locale =
+        body.locale ?? localeFromAcceptLanguage(headers["accept-language"]) ?? "en";
+      const t = getT(locale);
       const channel = resolveChannel(dialCode);
 
       if (channel === "telegram") {
         set.status = 422;
         return {
           success: false as const,
-          error:
-            "Numbers outside China Mainland are verified via the Telegram bot; " +
-            "poll GET /sms/status/:sessionId instead of submitting a code.",
+          error: t("sms.verify.telegramChannel"),
         };
       }
 
@@ -177,7 +202,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
         set.status = 500;
         return {
           success: false as const,
-          error: "No SMS provider is registered for this dial code",
+          error: t("sms.verify.noProvider"),
         };
       }
       try {
@@ -188,7 +213,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
         set.status = 502;
         return {
           success: false as const,
-          error: "Failed to verify code. Please try again later.",
+          error: t("sms.verify.verifyFailed"),
         };
       }
     },
@@ -220,11 +245,14 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
   // ── GET /sms/status/:sessionId ────────────────────────────────────────────
   .get(
     "/status/:sessionId",
-    async ({ params, set }) => {
+    async ({ params, query, headers, set }) => {
+      const locale: Locale =
+        query.locale ?? localeFromAcceptLanguage(headers["accept-language"]) ?? "en";
+      const t = getT(locale);
       const result = getSessionStatus(params.sessionId);
       if (!result) {
         set.status = 404;
-        return { success: false as const, error: "Unknown verification session" };
+        return { success: false as const, error: t("sms.status.notFound") };
       }
       if (result.status === "pending") {
         return { success: true as const, status: "pending" as const };
@@ -241,6 +269,18 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
     {
       params: t.Object({
         sessionId: t.String({ description: "Session ID returned by POST /sms/send" }),
+      }),
+      query: t.Object({
+        locale: t.Optional(
+          t.Enum(
+            { en: "en", zh: "zh", ja: "ja" },
+            {
+              description: "Language for error messages",
+              default: "en",
+              examples: ["zh", "ja"],
+            },
+          ),
+        ),
       }),
       response: {
         200: t.Union([

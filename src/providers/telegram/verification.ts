@@ -1,4 +1,5 @@
 import { config } from "../../config.js";
+import type { Locale } from "../../i18n/index.js";
 import { getMe } from "./client.js";
 import { sessionStore } from "./sessions.js";
 import type { SessionStatus } from "./types.js";
@@ -30,16 +31,26 @@ export interface VerificationHandoff {
   ttl: number;
 }
 
-/** Creates a pending session and returns the handoff payload for the consumer app. */
+/**
+ * Creates a pending session and returns the handoff payload for the consumer app.
+ * The locale is packed into the deep link's start payload (`?start=<locale>.<sessionId>`)
+ * so Telegram delivers it back to the bot on /start.
+ */
 export async function createVerificationSession(
   phoneNumber: string,
   dialCode: string,
+  locale: Locale,
 ): Promise<VerificationHandoff> {
-  const session = sessionStore.create(phoneNumber, dialCode, config.telegram.sessionTtlSeconds);
+  const session = sessionStore.create(
+    phoneNumber,
+    dialCode,
+    config.telegram.sessionTtlSeconds,
+    locale,
+  );
   const username = await resolveBotUsername();
   return {
     sessionId: session.id,
-    deepLink: `https://t.me/${username}?start=${session.id}`,
+    deepLink: `https://t.me/${username}?start=${locale}.${session.id}`,
     expiresAt: new Date(session.expiresAt).toISOString(),
     ttl: config.telegram.sessionTtlSeconds,
   };
