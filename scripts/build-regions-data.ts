@@ -66,6 +66,27 @@ const HMT_DIAL_CODES: Record<string, string> = {
   "CN-82": "853", // Macao SAR
 };
 
+/**
+ * Hand-picked display names for entries that should read like peer regions in
+ * a flat country list, keyed by region id. Applied on top of the upstream data.
+ */
+const NAME_OVERRIDES: Record<string, Record<string, string>> = {
+  CN: { en: "China Mainland", zh: "中国大陆", ja: "中国本土" },
+  "CN-71": { en: "Taiwan, China", zh: "中国台湾", ja: "中国台湾" },
+  "CN-81": { en: "Hong Kong SAR, China", zh: "中国香港特别行政区", ja: "中国香港特別行政区" },
+  "CN-82": { en: "Macao SAR, China", zh: "中国澳门特别行政区", ja: "中国マカオ特別行政区" },
+};
+
+function entryName(regionId: string, name: Record<string, string>): Record<string, string> {
+  const override = NAME_OVERRIDES[regionId];
+  if (override) return override;
+  return {
+    en: name.en,
+    zh: name.zh ?? name.en,
+    ja: name.ja ?? name.en,
+  };
+}
+
 // ── worldwide-regions data ─────────────────────────────────────────────────
 
 interface SourceRegion {
@@ -135,11 +156,7 @@ function collectRegions(sourceRegions: SourceRegion[]): {
       dialCode,
       isoCode,
       regionId: region.id,
-      name: {
-        en: region.name.en,
-        zh: region.name.zh ?? region.name.en,
-        ja: region.name.ja ?? region.name.en,
-      },
+      name: entryName(region.id, region.name),
     });
 
     // China sub-regions with their own dial codes (compliance: part of China).
@@ -150,11 +167,7 @@ function collectRegions(sourceRegions: SourceRegion[]): {
         dialCode: hmtCode,
         isoCode: "CN",
         regionId: child.id,
-        name: {
-          en: child.name.en,
-          zh: child.name.zh ?? child.name.en,
-          ja: child.name.ja ?? child.name.en,
-        },
+        name: entryName(child.id, child.name),
       });
     }
   }

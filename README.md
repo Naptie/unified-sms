@@ -86,14 +86,14 @@ Returns the list of supported country/region dial codes, each with display names
     "dialCode": "86",
     "isoCode": "CN",
     "regionId": "CN",
-    "name": { "en": "China", "zh": "中国", "ja": "中国" },
+    "name": { "en": "China Mainland", "zh": "中国大陆", "ja": "中国本土" },
     "method": "sms"
   },
   {
     "dialCode": "886",
     "isoCode": "CN",
     "regionId": "CN-71",
-    "name": { "en": "Taiwan Province", "zh": "台湾省", "ja": "台湾省" },
+    "name": { "en": "Taiwan, China", "zh": "中国台湾", "ja": "中国台湾" },
     "method": "telegram"
   }
 ]

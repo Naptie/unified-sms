@@ -759,9 +759,9 @@ export const REGIONS: RegionEntry[] = [
     isoCode: "CN",
     regionId: "CN",
     name: {
-      en: "China",
-      zh: "中国",
-      ja: "中国",
+      en: "China Mainland",
+      zh: "中国大陆",
+      ja: "中国本土",
     },
   },
   {
@@ -2239,9 +2239,9 @@ export const REGIONS: RegionEntry[] = [
     isoCode: "CN",
     regionId: "CN-81",
     name: {
-      en: "Hong Kong Special Administrative Region",
-      zh: "香港特别行政区",
-      ja: "香港特別行政区",
+      en: "Hong Kong SAR, China",
+      zh: "中国香港特别行政区",
+      ja: "中国香港特別行政区",
     },
   },
   {
@@ -2249,9 +2249,9 @@ export const REGIONS: RegionEntry[] = [
     isoCode: "CN",
     regionId: "CN-82",
     name: {
-      en: "Macao Special Administrative Region",
-      zh: "澳门特别行政区",
-      ja: "マカオ特別行政区",
+      en: "Macao SAR, China",
+      zh: "中国澳门特别行政区",
+      ja: "中国マカオ特別行政区",
     },
   },
   {
@@ -2289,9 +2289,9 @@ export const REGIONS: RegionEntry[] = [
     isoCode: "CN",
     regionId: "CN-71",
     name: {
-      en: "Taiwan Province",
-      zh: "台湾省",
-      ja: "台湾省",
+      en: "Taiwan, China",
+      zh: "中国台湾",
+      ja: "中国台湾",
     },
   },
   {
