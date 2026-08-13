@@ -6,11 +6,11 @@ Built with [Bun](https://bun.sh) and [Elysia](https://elysiajs.com). A publishab
 
 ## Overview
 
-- **Main features:** list supported countries/regions, send an OTP, verify an OTP
+- **Main features:** list supported countries/regions, send an OTP, verify an OTP, verify a phone number via Telegram
 - **Provider-based routing:** each dial code maps to exactly one provider; adding a new region means adding one file and one registry entry
 - **Bearer token auth** on every route — intended to be called only from trusted server-side code on the same machine
 - **Interactive API docs** at `/swagger` (Swagger UI, OpenAPI 3.0)
-- **Current providers:** Aliyun Dypnsapi for +86 (China Mainland)
+- **Current providers:** Aliyun Dypnsapi for +86 (China Mainland); every other number is verified for free via a Telegram bot contact-sharing flow
 
 ---
 
@@ -19,6 +19,7 @@ Built with [Bun](https://bun.sh) and [Elysia](https://elysiajs.com). A publishab
 - [Bun](https://bun.sh) ≥ 1.1
 - Upstream providers setup
   - [Aliyun](https://dypns.console.aliyun.com/smsServiceOverview)
+  - [Telegram bot](https://t.me/BotFather) (optional — enables verification for non-+86 numbers)
 
 ---
 
@@ -48,15 +49,22 @@ bun run typecheck   # type-check without running
 
 All configuration comes from environment variables. The server refuses to start if any required variable is absent.
 
-| Variable                   | Required | Default     | Description                                                                                                                                                |
-| -------------------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HOST`                     |          | `127.0.0.1` | Bind address. Leave as `127.0.0.1` for local-only access. Set to `0.0.0.0` only if you are deliberately exposing the port — see [Deployment](#deployment). |
-| `PORT`                     |          | `3000`      | Listen port                                                                                                                                                |
-| `API_SECRET`               | ✓        | —           | Shared secret. All requests must carry `Authorization: Bearer <API_SECRET>`.                                                                               |
-| `ALIYUN_ACCESS_KEY_ID`     | ✓        | —           | Aliyun RAM access key ID                                                                                                                                   |
-| `ALIYUN_ACCESS_KEY_SECRET` | ✓        | —           | Aliyun RAM access key secret                                                                                                                               |
-| `ALIYUN_SIGN_NAME`         | ✓        | —           | SMS sign name as configured in the Aliyun console                                                                                                          |
-| `ALIYUN_TEMPLATE_CODE`     | ✓        | —           | SMS template code. The template must accept `code` and `min` parameters.                                                                                   |
+| Variable                   | Required | Default     | Description                                                                                                                                                 |
+| -------------------------- | -------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HOST`                     |          | `127.0.0.1` | Bind address. Leave as `127.0.0.1` for local-only access. Set to `0.0.0.0` only if you are deliberately exposing the port — see [Deployment](#deployment).  |
+| `PORT`                     |          | `3000`      | Listen port                                                                                                                                                 |
+| `API_SECRET`               | ✓        | —           | Shared secret. All requests must carry `Authorization: Bearer <API_SECRET>`.                                                                                |
+| `ALIYUN_ACCESS_KEY_ID`     | ✓        | —           | Aliyun RAM access key ID                                                                                                                                    |
+| `ALIYUN_ACCESS_KEY_SECRET` | ✓        | —           | Aliyun RAM access key secret                                                                                                                                |
+| `ALIYUN_SIGN_NAME`         | ✓        | —           | SMS sign name as configured in the Aliyun console                                                                                                           |
+| `ALIYUN_TEMPLATE_CODE`     | ✓        | —           | SMS template code. The template must accept `code` and `min` parameters.                                                                                    |
+| `TELEGRAM_BOT_TOKEN`       | \*       | —           | Bot token from BotFather. Together with the next two variables, enables Telegram verification for non-+86 numbers.                                          |
+| `TELEGRAM_WEBHOOK_URL`     | \*       | —           | Public HTTPS URL Telegram should POST updates to, e.g. `https://sms.example.com/telegram/webhook`. Must reach this process (typically via a reverse proxy). |
+| `TELEGRAM_WEBHOOK_SECRET`  | \*       | —           | Random secret registered with Telegram via `setWebhook`; every webhook call must carry it in the `X-Telegram-Bot-Api-Secret-Token` header.                  |
+| `TELEGRAM_SESSION_TTL`     |          | `600`       | How long a Telegram verification session stays valid, in seconds.                                                                                           |
+| `TELEGRAM_MAX_CONNECTIONS` |          | `5`         | Max simultaneous webhook delivery connections Telegram may open (1–100). Keep low when the webhook path runs over an SSH tunnel or CDN chain.               |
+
+\_The three `TELEGRAM\__`values marked with`\*` are all-or-nothing: set all of them to enable the Telegram fallback, or leave them all empty to disable it.
 
 See `.env.example` for a ready-to-fill template.
 
@@ -66,53 +74,81 @@ See `.env.example` for a ready-to-fill template.
 
 All routes require `Authorization: Bearer <API_SECRET>`.
 
-### `GET /countries`
+### `GET /regions`
 
-Returns the list of supported country/region codes.
+Returns the list of supported country/region dial codes, each with display names in English, Chinese and Japanese. The data is generated by `bun run build:data` from the [worldwide-regions](https://github.com/Naptie/worldwide-regions) pipeline (multilingual, PRC-compliant names) joined with [libphonenumber](https://www.npmjs.com/package/libphonenumber-js) E.164 dial codes.
 
 **Response `200`**
 
 ```json
-[{ "dialCode": "86", "name": "China (Mainland)", "isoCode": "CN" }]
+[
+  {
+    "dialCode": "86",
+    "isoCode": "CN",
+    "regionId": "CN",
+    "name": { "en": "China", "zh": "中国", "ja": "中国" },
+    "method": "sms"
+  },
+  {
+    "dialCode": "886",
+    "isoCode": "CN",
+    "regionId": "CN-71",
+    "name": { "en": "Taiwan Province", "zh": "台湾省", "ja": "台湾省" },
+    "method": "telegram"
+  }
+]
 ```
+
+Compliance notes: Taiwan, Hong Kong and Macau are listed under China (`CN-71`, `CN-81`, `CN-82`) with their own dial codes (+886/+852/+853); Kosovo is not listed (reparented to Serbia upstream).
 
 ---
 
 ### `POST /sms/send`
 
-Triggers an OTP to be sent. The hub selects the right provider based on `countryCode`.
+Triggers an OTP to be sent (SMS-backed numbers) or creates a Telegram verification session (all other numbers). The hub selects the channel based on `dialCode`: `86` → SMS, anything else → Telegram.
 
 **Request body**
 
-| Field         | Type           | Required | Description                                                                                        |
-| ------------- | -------------- | -------- | -------------------------------------------------------------------------------------------------- |
-| `phoneNumber` | string         | ✓        | Phone number without dial code, e.g. `"13800138000"`                                               |
-| `countryCode` | string         | ✓        | Dial code without the `+` sign, e.g. `"86"`                                                        |
-| `codeLength`  | integer (4–10) |          | OTP digit count. Aliyun default: 4. Ignored by providers that configure this at the service level. |
-| `validTime`   | integer (≥ 1)  |          | Code TTL in seconds. Aliyun default: 300. Ignored by providers with a fixed TTL.                   |
+| Field         | Type           | Required | Description                                                              |
+| ------------- | -------------- | -------- | ------------------------------------------------------------------------ |
+| `phoneNumber` | string         | ✓        | Phone number without dial code, e.g. `"13800138000"`                     |
+| `dialCode`    | string         | ✓        | Dial code without the `+` sign, e.g. `"86"`                              |
+| `codeLength`  | integer (4–10) |          | OTP digit count. Aliyun default: 4. Ignored for Telegram sessions.       |
+| `validTime`   | integer (≥ 1)  |          | Code TTL in seconds. Aliyun default: 300. Ignored for Telegram sessions. |
 
-**Response `200`**
+**Response `200`** — SMS channel (`method: "sms"`)
 
 ```json
-{ "success": true, "requestId": "abc123" }
+{ "success": true, "method": "sms", "requestId": "abc123" }
 ```
 
-`requestId` may be absent if the provider does not return one.
+**Response `200`** — Telegram channel (`method: "telegram"`)
 
-**Errors:** `422` for unsupported country/region or validation failure, `502` if the upstream provider returns an error.
+```json
+{
+  "success": true,
+  "method": "telegram",
+  "sessionId": "abc123",
+  "deepLink": "https://t.me/YourAppVerificationBot?start=abc123",
+  "expiresAt": "2026-08-13T10:30:00.000Z",
+  "ttl": 600
+}
+```
+
+**Errors:** `422` for invalid phone entry or unsupported country/region, `502` if the upstream provider returns an error or Telegram verification is not configured.
 
 ---
 
 ### `POST /sms/verify`
 
-Checks whether the provided code is correct and still valid. Verification is delegated entirely to the upstream provider — the hub never stores or sees the raw code.
+Checks whether the provided code is correct and still valid. Verification is delegated entirely to the upstream provider — the hub never stores or sees the raw code. Only applies to SMS-backed numbers (+86).
 
 **Request body**
 
 | Field         | Type   | Required | Description                       |
 | ------------- | ------ | -------- | --------------------------------- |
 | `phoneNumber` | string | ✓        | Same number used in the send call |
-| `countryCode` | string | ✓        | Dial code without the `+` sign    |
+| `dialCode`    | string | ✓        | Dial code without the `+` sign    |
 | `code`        | string | ✓        | OTP code entered by the user      |
 
 **Response `200`**
@@ -120,6 +156,45 @@ Checks whether the provided code is correct and still valid. Verification is del
 ```json
 { "success": true, "verified": true }
 ```
+
+**Errors:** `422` for non-SMS numbers (use the status endpoint instead), `502` if the upstream provider returns an error.
+
+---
+
+### `GET /sms/status/:sessionId`
+
+Polls the state of a Telegram verification session. Call this every 2–3 seconds after handing the `deepLink` to the user, and stop on `verified` or `expired`.
+
+**Response `200`**
+
+```json
+{ "success": true, "status": "pending" }
+{ "success": true, "status": "verified", "verifiedNumber": "+14155552671" }
+{ "success": true, "status": "expired" }
+```
+
+**Errors:** `404` for an unknown session id.
+
+---
+
+### `POST /telegram/webhook`
+
+Called by Telegram whenever the bot receives a message. This is the only endpoint that does not require the Bearer API secret — it is authenticated by the `X-Telegram-Bot-Api-Secret-Token` header matching `TELEGRAM_WEBHOOK_SECRET`. You should not call it yourself.
+
+---
+
+## Telegram verification flow
+
+When the hub routes a number to the Telegram channel:
+
+1. The consumer app shows the user the `deepLink` returned by `POST /sms/send` ("click the link below to open our Telegram bot").
+2. The user taps **Start**; the bot binds the session to their Telegram chat and shows a **Share Phone Number** button (Telegram's native `request_contact` keyboard).
+3. The bot checks the shared contact:
+   - `contact.user_id` must equal the sender's Telegram user id, guaranteeing the user shares their own account's number rather than an arbitrary address-book entry;
+   - the shared number, normalized to E.164 digits, must match the number entered on the website.
+4. On success the session becomes `verified` and the consumer app's poll of `GET /sms/status/:sessionId` returns the confirmed E.164 number.
+
+Security notes: sessions are single-use, expire after `TELEGRAM_SESSION_TTL` seconds, and their ids are unguessable (`crypto.randomUUID`). A Telegram contact share is a weaker proof of ownership than an SMS OTP (numbers can be recycled or changed), so treat it as best-effort verification, not strong authentication.
 
 ---
 
@@ -171,7 +246,7 @@ const sms = createClient("http://127.0.0.1:3000", {
 // Send an OTP
 const { data, error } = await sms.sms.send.post({
   phoneNumber: "13800138000",
-  countryCode: "86",
+  dialCode: "86",
   codeLength: 6,
   validTime: 300,
 });
@@ -185,12 +260,40 @@ if (error) {
 // Verify an OTP
 const { data: result } = await sms.sms.verify.post({
   phoneNumber: "13800138000",
-  countryCode: "86",
+  dialCode: "86",
   code: userInputCode,
 });
 
 if (result?.verified) {
   // phone number ownership confirmed
+}
+
+// Verify a phone number via Telegram (non-+86 numbers)
+const { data: handoff, error: sendError } = await sms.sms.send.post({
+  phoneNumber: "4155552671",
+  dialCode: "1",
+});
+
+if (sendError) {
+  console.error("Send failed:", sendError.value);
+} else if (handoff?.method === "telegram") {
+  // Show the user the deep link: "To verify your number for free,
+  // please click the link below to open our Telegram bot."
+  console.log("Open in Telegram:", handoff.deepLink);
+
+  // Poll until the user shares their number in the bot
+  for (let i = 0; i < handoff.ttl / 2; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const { data: status } = await sms.status.get(handoff.sessionId);
+    if (status?.status === "verified") {
+      console.log("Verified number:", status.verifiedNumber);
+      break;
+    }
+    if (status?.status === "expired") {
+      console.error("Verification session expired");
+      break;
+    }
+  }
 }
 ```
 
@@ -199,65 +302,3 @@ All request fields, response shapes, and error payloads are typed automatically 
 ### Keeping types up to date
 
 The `client` branch is force-pushed on every `main` commit. If you installed via a lockfile-pinned git reference, re-run your package manager's install command after pulling to pick up type changes.
-
----
-
-## Adding a provider
-
-To support a new country or region:
-
-**1. Create the provider**
-
-Add `src/providers/<name>.ts` implementing the `SmsProvider` interface:
-
-```ts
-import type { SendCodeOptions, SendCodeResult, SmsProvider, VerifyCodeResult } from "./types.js";
-
-export class TwilioProvider implements SmsProvider {
-  async sendCode(
-    phoneNumber: string,
-    countryCode: string,
-    options?: SendCodeOptions,
-  ): Promise<SendCodeResult> {
-    // call Twilio Verify API
-    return { requestId: "..." };
-  }
-
-  async verifyCode(
-    phoneNumber: string,
-    countryCode: string,
-    code: string,
-  ): Promise<VerifyCodeResult> {
-    // call Twilio Verify check API
-    return { verified: true };
-  }
-}
-```
-
-**2. Register the provider**
-
-In `src/providers/registry.ts`, add an entry to `SUPPORTED_COUNTRIES` and a case in `getProvider`:
-
-```ts
-export const SUPPORTED_COUNTRIES: CountryInfo[] = [
-  { dialCode: "86", name: "China (Mainland)", isoCode: "CN" },
-  { dialCode: "1", name: "United States", isoCode: "US" }, // added
-];
-
-export function getProvider(dialCode: string): SmsProvider | undefined {
-  if (dialCode === "86") {
-    /* existing */
-  }
-
-  if (dialCode === "1") {
-    if (!instances.has("1")) instances.set("1", new TwilioProvider());
-    return instances.get("1");
-  }
-}
-```
-
-**3. Add configuration**
-
-Add any required env vars to `src/config.ts`, the `requireEnv` calls in the provider constructor, and `.env.example`.
-
-The new country/region will appear in `GET /countries` immediately and be routable by the send/verify endpoints.

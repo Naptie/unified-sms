@@ -8,6 +8,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "build": "bun build src/index.ts --target bun --external '@alicloud/dypnsapi20170525' --external '@alicloud/openapi-client' --external '@alicloud/tea-typescript' --external '@alicloud/tea-util' --outfile build/index.js",
+    "build:data": "bun run scripts/build-regions-data.ts",
     "typecheck": "tsc --noEmit",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check"
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@elysia/eden": "^1.4.10",
     "bun-types": "latest",
+    "libphonenumber-js": "^1.13.10",
     "oxfmt": "^0.51.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3"

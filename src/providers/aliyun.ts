@@ -24,7 +24,7 @@ export class AliyunProvider implements SmsProvider {
 
   async sendCode(
     phoneNumber: string,
-    countryCode: string,
+    dialCode: string,
     options?: SendCodeOptions,
   ): Promise<SendCodeResult> {
     const mins = (options?.validTime ?? 300) / 60;
@@ -32,7 +32,7 @@ export class AliyunProvider implements SmsProvider {
 
     const request = new $Dypnsapi20170525.SendSmsVerifyCodeRequest({
       phoneNumber,
-      countryCode,
+      dialCode,
       signName: config.aliyun.signName,
       templateCode: config.aliyun.templateCode,
       templateParam: `{"code":"##code##","min":"${minStr}"}`,
@@ -55,14 +55,10 @@ export class AliyunProvider implements SmsProvider {
     };
   }
 
-  async verifyCode(
-    phoneNumber: string,
-    countryCode: string,
-    code: string,
-  ): Promise<VerifyCodeResult> {
+  async verifyCode(phoneNumber: string, dialCode: string, code: string): Promise<VerifyCodeResult> {
     const request = new $Dypnsapi20170525.CheckSmsVerifyCodeRequest({
       phoneNumber,
-      countryCode,
+      dialCode,
       verifyCode: code,
     });
     const runtime = new $Util.RuntimeOptions({});

@@ -21,7 +21,7 @@ export type { App };
  *
  * const { data, error } = await sms.sms.send.post({
  *   phoneNumber: "13800138000",
- *   countryCode: "86",
+ *   dialCode: "86",
  * });
  * ```
  */

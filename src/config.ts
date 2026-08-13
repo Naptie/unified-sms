@@ -14,4 +14,11 @@ export const config = {
     signName: requireEnv("ALIYUN_SIGN_NAME"),
     templateCode: requireEnv("ALIYUN_TEMPLATE_CODE"),
   },
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+    webhookUrl: process.env.TELEGRAM_WEBHOOK_URL ?? "",
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
+    sessionTtlSeconds: Math.max(1, Number(process.env.TELEGRAM_SESSION_TTL) || 600),
+    maxConnections: Math.min(100, Math.max(1, Number(process.env.TELEGRAM_MAX_CONNECTIONS) || 5)),
+  },
 } as const;

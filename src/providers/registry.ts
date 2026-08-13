@@ -1,29 +1,39 @@
+import { REGIONS } from "../data/regions.js";
 import { AliyunProvider } from "./aliyun.js";
 import type { SmsProvider } from "./types.js";
 
-export interface CountryInfo {
+export type VerificationChannel = "sms" | "telegram";
+
+export interface RegionInfo {
   /** Dial code without the leading "+" (e.g. "86") */
   dialCode: string;
-  /** Human-readable country/region name */
-  name: string;
   /** ISO 3166-1 alpha-2 code */
   isoCode: string;
+  /** worldwide-regions region id */
+  regionId: string;
+  /** Display names keyed by locale ("en", "zh", "ja") */
+  name: Record<string, string>;
+  /** How numbers in this entry are verified */
+  method: VerificationChannel;
 }
 
 /**
- * The canonical list of supported country/region codes.
- * Add an entry here (and a corresponding factory case in `getProvider`) to enable a new region.
+ * The canonical list of supported country/region codes (generated from the
+ * worldwide-regions data — see src/data/regions.ts).
+ * +86 is served by Aliyun SMS; every other dial code falls back to the
+ * Telegram contact-sharing flow.
  */
-export const SUPPORTED_COUNTRIES: CountryInfo[] = [
-  { dialCode: "86", name: "China (Mainland)", isoCode: "CN" },
-];
+export const SUPPORTED_REGIONS: RegionInfo[] = REGIONS.map((region) => ({
+  ...region,
+  method: resolveChannel(region.dialCode),
+}));
 
 // Lazily instantiated provider singletons
 const instances = new Map<string, SmsProvider>();
 
 /**
  * Returns the SMS provider for the given dial code, or `undefined` if unsupported.
- * To add a new provider (e.g. Twilio for +1), add a case here and update SUPPORTED_COUNTRIES.
+ * To add a new provider (e.g. Twilio for +1), add a case here and update SUPPORTED_REGIONS.
  */
 export function getProvider(dialCode: string): SmsProvider | undefined {
   if (dialCode === "86") {
@@ -39,6 +49,10 @@ export function getProvider(dialCode: string): SmsProvider | undefined {
   return undefined;
 }
 
-export function isSupportedCountry(dialCode: string): boolean {
-  return SUPPORTED_COUNTRIES.some((c) => c.dialCode === dialCode);
+/**
+ * Which verification channel serves a given dial code.
+ * Only +86 is SMS-backed; everything else goes through the Telegram bot.
+ */
+export function resolveChannel(dialCode: string): VerificationChannel {
+  return dialCode === "86" ? "sms" : "telegram";
 }

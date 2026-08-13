@@ -39,21 +39,21 @@ export interface SendCodeOptions {
 export interface SmsProvider {
   /**
    * Send an OTP code via SMS. The provider generates and tracks the code internally.
-   * @param phoneNumber - Phone number without the country code prefix
-   * @param countryCode - Dial code (e.g. "86")
+   * @param phoneNumber - Phone number without the dial code prefix
+   * @param dialCode - Dial code (e.g. "86")
    * @param options - Optional generation settings (provider support varies)
    */
   sendCode(
     phoneNumber: string,
-    countryCode: string,
+    dialCode: string,
     options?: SendCodeOptions,
   ): Promise<SendCodeResult>;
 
   /**
    * Verify an OTP code submitted by the user.
-   * @param phoneNumber - Phone number without the country code prefix
-   * @param countryCode - Dial code (e.g. "86")
+   * @param phoneNumber - Phone number without the dial code prefix
+   * @param dialCode - Dial code (e.g. "86")
    * @param code - The code the user submitted
    */
-  verifyCode(phoneNumber: string, countryCode: string, code: string): Promise<VerifyCodeResult>;
+  verifyCode(phoneNumber: string, dialCode: string, code: string): Promise<VerifyCodeResult>;
 }
