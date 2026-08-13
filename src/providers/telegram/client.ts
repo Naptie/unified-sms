@@ -14,7 +14,7 @@ export async function callBotApi<T = unknown>(
   payload: Record<string, unknown> = {},
 ): Promise<T> {
   const response = await fetch(
-    `https://api.telegram.org/bot${config.telegram.botToken}/${method}`,
+    `${config.proxyUrl}https://api.telegram.org/bot${config.telegram.botToken}/${method}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

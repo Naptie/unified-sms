@@ -8,6 +8,7 @@ export const config = {
   hostname: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.PORT) || 3000,
   apiSecret: requireEnv("API_SECRET"),
+  proxyUrl: process.env.REVERSE_PROXY?.trim() ?? "",
   aliyun: {
     accessKeyId: requireEnv("ALIYUN_ACCESS_KEY_ID"),
     accessKeySecret: requireEnv("ALIYUN_ACCESS_KEY_SECRET"),
