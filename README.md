@@ -54,6 +54,7 @@ All configuration comes from environment variables. The server refuses to start 
 | `HOST`                     |          | `127.0.0.1` | Bind address. Leave as `127.0.0.1` for local-only access. Set to `0.0.0.0` only if you are deliberately exposing the port — see [Deployment](#deployment).  |
 | `PORT`                     |          | `3000`      | Listen port                                                                                                                                                 |
 | `API_SECRET`               | ✓        | —           | Shared secret. All requests must carry `Authorization: Bearer <API_SECRET>`.                                                                                |
+| `REDIS_URI`                | ✓        | —           | Redis connection string used as the Telegram verification session store, e.g. `redis://localhost:6379`. Requires Redis 6.0+.                                           |
 | `ALIYUN_ACCESS_KEY_ID`     | ✓        | —           | Aliyun RAM access key ID                                                                                                                                    |
 | `ALIYUN_ACCESS_KEY_SECRET` | ✓        | —           | Aliyun RAM access key secret                                                                                                                                |
 | `ALIYUN_SIGN_NAME`         | ✓        | —           | SMS sign name as configured in the Aliyun console                                                                                                           |
@@ -130,7 +131,7 @@ Triggers an OTP to be sent (SMS-backed numbers) or creates a Telegram verificati
   "success": true,
   "method": "telegram",
   "sessionId": "abc123",
-  "deepLink": "https://t.me/YourAppVerificationBot?start=zh.abc123",
+  "deepLink": "https://t.me/YourAppVerificationBot?start=zh_abc123",
   "expiresAt": "2026-08-13T10:30:00.000Z",
   "ttl": 600
 }

@@ -33,15 +33,16 @@ export interface VerificationHandoff {
 
 /**
  * Creates a pending session and returns the handoff payload for the consumer app.
- * The locale is packed into the deep link's start payload (`?start=<locale>.<sessionId>`)
- * so Telegram delivers it back to the bot on /start.
+ * The locale is packed into the deep link's start payload (`?start=<locale>_<sessionId>`)
+ * so Telegram delivers it back to the bot on /start. The separator is "_" because
+ * Telegram only allows A-Z, a-z, 0-9, "_" and "-" in the start parameter.
  */
 export async function createVerificationSession(
   phoneNumber: string,
   dialCode: string,
   locale: Locale,
 ): Promise<VerificationHandoff> {
-  const session = sessionStore.create(
+  const session = await sessionStore.create(
     phoneNumber,
     dialCode,
     config.telegram.sessionTtlSeconds,
@@ -50,7 +51,7 @@ export async function createVerificationSession(
   const username = await resolveBotUsername();
   return {
     sessionId: session.id,
-    deepLink: `https://t.me/${username}?start=${locale}.${session.id}`,
+    deepLink: `https://t.me/${username}?start=${locale}_${session.id}`,
     expiresAt: new Date(session.expiresAt).toISOString(),
     ttl: config.telegram.sessionTtlSeconds,
   };
@@ -61,8 +62,10 @@ export interface SessionStatusResult {
   verifiedNumber?: string;
 }
 
-export function getSessionStatus(sessionId: string): SessionStatusResult | undefined {
-  const session = sessionStore.get(sessionId);
+export async function getSessionStatus(
+  sessionId: string,
+): Promise<SessionStatusResult | undefined> {
+  const session = await sessionStore.get(sessionId);
   if (!session) return undefined;
   return { status: session.status, verifiedNumber: session.verifiedNumber };
 }

@@ -3,11 +3,13 @@ import { swagger } from "@elysiajs/swagger";
 
 import { config } from "./config.js";
 import { setupTelegramBot, shutdownTelegramBot } from "./providers/telegram/bot.js";
-import { startSessionCleanup } from "./providers/telegram/sessions.js";
+import { shutdownSessionStore, startSessionStore } from "./providers/telegram/sessions.js";
 import { isTelegramEnabled } from "./providers/telegram/verification.js";
 import { regionsRoutes } from "./routes/regions.js";
 import { smsRoutes } from "./routes/sms.js";
 import { telegramRoutes } from "./routes/telegram.js";
+
+await startSessionStore();
 
 const app = new Elysia()
   .use(
@@ -43,6 +45,7 @@ const app = new Elysia()
   .use(smsRoutes)
   .use(telegramRoutes)
   .onStop(async () => {
+    shutdownSessionStore();
     if (isTelegramEnabled()) {
       await shutdownTelegramBot();
     }
@@ -63,8 +66,6 @@ const app = new Elysia()
   .listen({ hostname: config.hostname, port: config.port });
 
 export type App = typeof app;
-
-startSessionCleanup();
 
 if (isTelegramEnabled()) {
   setupTelegramBot().catch((err) => {

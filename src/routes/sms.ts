@@ -249,7 +249,7 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       const locale: Locale =
         query.locale ?? localeFromAcceptLanguage(headers["accept-language"]) ?? "en";
       const t = getT(locale);
-      const result = getSessionStatus(params.sessionId);
+      const result = await getSessionStatus(params.sessionId);
       if (!result) {
         set.status = 404;
         return { success: false as const, error: t("sms.status.notFound") };

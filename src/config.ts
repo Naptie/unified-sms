@@ -9,6 +9,7 @@ export const config = {
   port: Number(process.env.PORT) || 3000,
   apiSecret: requireEnv("API_SECRET"),
   proxyUrl: process.env.REVERSE_PROXY?.trim() ?? "",
+  redisUri: requireEnv("REDIS_URI"),
   aliyun: {
     accessKeyId: requireEnv("ALIYUN_ACCESS_KEY_ID"),
     accessKeySecret: requireEnv("ALIYUN_ACCESS_KEY_SECRET"),

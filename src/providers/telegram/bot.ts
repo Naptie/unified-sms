@@ -16,8 +16,12 @@ function contactKeyboard(locale: Locale) {
 }
 
 const START_COMMAND_PREFIX = "/start";
-/** Separator between the locale and the session id in the deep link start payload. */
-const PAYLOAD_SEPARATOR = ".";
+/**
+ * Separator between the locale and the session id in the deep link start payload.
+ * Must be one of A-Z a-z 0-9 "_" "-": Telegram rejects any other character and
+ * silently drops the whole payload (the bot then sees a plain /start).
+ */
+const PAYLOAD_SEPARATOR = "_";
 
 interface StartPayload {
   locale: Locale;
@@ -25,7 +29,7 @@ interface StartPayload {
 }
 
 /**
- * Parses a /start payload. Current format: `<locale>.<sessionId>` (e.g. `zh.sess_…`).
+ * Parses a /start payload. Current format: `<locale>_<sessionId>` (e.g. `zh_sess_…`).
  * Falls back to treating the whole payload as a bare session id for legacy links.
  */
 function parseStartPayload(payload: string): StartPayload {
@@ -51,7 +55,7 @@ async function handleStart(message: TelegramMessage): Promise<void> {
     return;
   }
 
-  const session = sessionStore.get(sessionId);
+  const session = await sessionStore.get(sessionId);
   if (!session) {
     await sendMessage(chatId, t("bot.start.invalid"));
     return;
@@ -61,7 +65,7 @@ async function handleStart(message: TelegramMessage): Promise<void> {
     await sendMessage(chatId, text);
     return;
   }
-  if (!sessionStore.bindChat(session.id, chatId)) {
+  if (!(await sessionStore.bindChat(session.id, chatId))) {
     await sendMessage(chatId, t("bot.start.claimed"));
     return;
   }
@@ -74,7 +78,7 @@ async function handleContact(message: TelegramMessage): Promise<void> {
   const contact = message.contact;
   if (!contact) return;
 
-  const session = sessionStore.getPendingByChatId(chatId);
+  const session = await sessionStore.getPendingByChatId(chatId);
   const t = getT(session?.locale ?? "en");
   if (!session) {
     await sendMessage(chatId, t("bot.contact.noSession"));
@@ -97,7 +101,7 @@ async function handleContact(message: TelegramMessage): Promise<void> {
     return;
   }
 
-  if (!sessionStore.markVerified(session.id, `+${expected}`)) {
+  if (!(await sessionStore.markVerified(session.id, `+${expected}`))) {
     await sendMessage(chatId, t("bot.contact.sessionInvalid"));
     return;
   }
