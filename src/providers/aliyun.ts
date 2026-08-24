@@ -3,8 +3,17 @@ import * as $OpenApi from "@alicloud/openapi-client";
 import * as $Util from "@alicloud/tea-util";
 
 import { config } from "../config.js";
-import { ProviderError } from "./errors.js";
+import { errorCodeOf, ProviderError } from "./errors.js";
 import type { SendCodeOptions, SendCodeResult, SmsProvider, VerifyCodeResult } from "./types.js";
+
+/**
+ * Aliyun's code for a wrong, expired, or superseded OTP — an expected
+ * verification outcome, not a provider fault (see the PNVS API return-code
+ * table: help.aliyun.com/zh/pnvs/developer-reference/api-return-code).
+ * CheckSmsVerifyCode answers it with HTTP 400, which the OpenAPI client
+ * rethrows as an error carrying this code.
+ */
+const VERIFY_FAILED = "isv.ValidateFail";
 
 /**
  * Aliyun (Alibaba Cloud) Dypnsapi SMS provider.
@@ -69,22 +78,32 @@ export class AliyunProvider implements SmsProvider {
     });
     const runtime = new $Util.RuntimeOptions({});
 
-    const response = await this.client.checkSmsVerifyCodeWithOptions(request, runtime);
-    const body = response.body;
+    try {
+      const response = await this.client.checkSmsVerifyCodeWithOptions(request, runtime);
+      const body = response.body;
 
-    if (!body) throw new Error("Empty response from Aliyun CheckSmsVerifyCode");
-    if (body.code !== "OK") {
-      throw new ProviderError(
-        "aliyun",
-        body.code ?? "UNKNOWN",
-        body.message ?? `Aliyun error code: ${body.code}`,
-        body.requestId ?? undefined,
-      );
+      if (!body) throw new Error("Empty response from Aliyun CheckSmsVerifyCode");
+      if (body.code === VERIFY_FAILED) return { verified: false };
+      if (body.code !== "OK") {
+        throw new ProviderError(
+          "aliyun",
+          body.code ?? "UNKNOWN",
+          body.message ?? `Aliyun error code: ${body.code}`,
+          body.requestId ?? undefined,
+        );
+      }
+
+      return {
+        verified: body.model?.verifyResult === "PASS",
+        requestId: body.requestId ?? undefined,
+      };
+    } catch (err: unknown) {
+      // Wrong/expired/superseded codes arrive as HTTP 400 -> TeaException
+      // with code isv.ValidateFail; translate them into a normal miss.
+      if (errorCodeOf(err) === VERIFY_FAILED) {
+        return { verified: false };
+      }
+      throw err;
     }
-
-    return {
-      verified: body.model?.verifyResult === "PASS",
-      requestId: body.requestId ?? undefined,
-    };
   }
 }
