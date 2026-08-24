@@ -1,0 +1,12 @@
+{
+  "name": "unified-sms-client",
+  "version": "0.0.0",
+  "description": "Typed Eden Treaty client for unified-sms",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "peerDependencies": {
+    "@elysia/eden": ">=1.0.0",
+    "elysia": ">=1.0.0"
+  }
+}
