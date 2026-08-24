@@ -3,6 +3,7 @@ import * as $OpenApi from "@alicloud/openapi-client";
 import * as $Util from "@alicloud/tea-util";
 
 import { config } from "../config.js";
+import { ProviderError } from "./errors.js";
 import type { SendCodeOptions, SendCodeResult, SmsProvider, VerifyCodeResult } from "./types.js";
 
 /**
@@ -46,7 +47,12 @@ export class AliyunProvider implements SmsProvider {
 
     if (!body) throw new Error("Empty response from Aliyun SendSmsVerifyCode");
     if (body.code !== "OK") {
-      throw new Error(body.message ?? `Aliyun error code: ${body.code}`);
+      throw new ProviderError(
+        "aliyun",
+        body.code ?? "UNKNOWN",
+        body.message ?? `Aliyun error code: ${body.code}`,
+        body.requestId ?? undefined,
+      );
     }
 
     return {
@@ -68,7 +74,12 @@ export class AliyunProvider implements SmsProvider {
 
     if (!body) throw new Error("Empty response from Aliyun CheckSmsVerifyCode");
     if (body.code !== "OK") {
-      throw new Error(body.message ?? `Aliyun error code: ${body.code}`);
+      throw new ProviderError(
+        "aliyun",
+        body.code ?? "UNKNOWN",
+        body.message ?? `Aliyun error code: ${body.code}`,
+        body.requestId ?? undefined,
+      );
     }
 
     return {

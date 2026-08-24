@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 
 import { getT, localeFromAcceptLanguage, type Locale } from "../i18n/index.js";
+import { logVerification } from "../logger.js";
 import { authPlugin } from "../plugins/auth.js";
 import { isValidPhoneEntry } from "../providers/telegram/phone.js";
 import {
@@ -8,6 +9,7 @@ import {
   getSessionStatus,
   isTelegramEnabled,
 } from "../providers/telegram/verification.js";
+import { errorCodeOf } from "../providers/errors.js";
 import { getProvider, resolveChannel } from "../providers/registry.js";
 
 const ErrorResponse = t.Object({
@@ -96,10 +98,26 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
 
       if (channel === "telegram") {
         if (!isValidPhoneEntry(dialCode, phoneNumber)) {
+          logVerification({
+            route: "sms/send",
+            dialCode,
+            phoneNumber,
+            ok: false,
+            status: 422,
+            code: "invalid_phone",
+          });
           set.status = 422;
           return { success: false as const, error: t("sms.send.invalidPhone") };
         }
         if (!isTelegramEnabled()) {
+          logVerification({
+            route: "sms/send",
+            dialCode,
+            phoneNumber,
+            ok: false,
+            status: 502,
+            code: "telegram_unavailable",
+          });
           set.status = 502;
           return {
             success: false as const,
@@ -108,9 +126,28 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
         }
         try {
           const handoff = await createVerificationSession(phoneNumber, dialCode, locale);
+          logVerification({
+            route: "sms/send",
+            dialCode,
+            phoneNumber,
+            ok: true,
+            status: 200,
+            code: "telegram_session_created",
+            detail: `session=${handoff.sessionId}`,
+          });
           return { success: true as const, method: "telegram" as const, ...handoff };
         } catch (err: unknown) {
-          console.error("[sms/send]", err instanceof Error ? err.message : err);
+          const message = err instanceof Error ? err.message : String(err);
+          console.error("[sms/send]", message);
+          logVerification({
+            route: "sms/send",
+            dialCode,
+            phoneNumber,
+            ok: false,
+            status: 502,
+            code: errorCodeOf(err),
+            detail: message,
+          });
           set.status = 502;
           return {
             success: false as const,
@@ -122,6 +159,14 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       const provider = getProvider(dialCode);
       if (!provider) {
         console.error(`[sms/send] no SMS provider registered for dial code +${dialCode}`);
+        logVerification({
+          route: "sms/send",
+          dialCode,
+          phoneNumber,
+          ok: false,
+          status: 500,
+          code: "no_provider",
+        });
         set.status = 500;
         return {
           success: false as const,
@@ -130,9 +175,31 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       }
       try {
         const result = await provider.sendCode(phoneNumber, dialCode, { codeLength, validTime });
+        logVerification({
+          route: "sms/send",
+          dialCode,
+          phoneNumber,
+          ok: true,
+          status: 200,
+          code: "otp_sent",
+          detail:
+            result.requestId !== undefined || result.bizId !== undefined
+              ? `requestId=${result.requestId ?? "-"} bizId=${result.bizId ?? "-"}`
+              : undefined,
+        });
         return { success: true as const, method: "sms" as const, requestId: result.requestId };
       } catch (err: unknown) {
-        console.error("[sms/send]", err instanceof Error ? err.message : err);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[sms/send]", message);
+        logVerification({
+          route: "sms/send",
+          dialCode,
+          phoneNumber,
+          ok: false,
+          status: 502,
+          code: errorCodeOf(err),
+          detail: message,
+        });
         set.status = 502;
         return { success: false as const, error: t("sms.send.sendFailed") };
       }
@@ -189,6 +256,15 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       const channel = resolveChannel(dialCode);
 
       if (channel === "telegram") {
+        logVerification({
+          route: "sms/verify",
+          dialCode,
+          phoneNumber,
+          ok: false,
+          status: 422,
+          code: "telegram_channel",
+          detail: "verify via Telegram session status, not /sms/verify",
+        });
         set.status = 422;
         return {
           success: false as const,
@@ -199,6 +275,14 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       const provider = getProvider(dialCode);
       if (!provider) {
         console.error(`[sms/verify] no SMS provider registered for dial code +${dialCode}`);
+        logVerification({
+          route: "sms/verify",
+          dialCode,
+          phoneNumber,
+          ok: false,
+          status: 500,
+          code: "no_provider",
+        });
         set.status = 500;
         return {
           success: false as const,
@@ -207,9 +291,28 @@ export const smsRoutes = new Elysia({ prefix: "/sms" })
       }
       try {
         const result = await provider.verifyCode(phoneNumber, dialCode, code);
+        logVerification({
+          route: "sms/verify",
+          dialCode,
+          phoneNumber,
+          ok: result.verified,
+          status: 200,
+          ...(result.verified ? { code: "verified" as const } : { code: "code_rejected" as const }),
+          ...(result.requestId !== undefined ? { detail: `requestId=${result.requestId}` } : {}),
+        });
         return { success: true as const, verified: result.verified };
       } catch (err: unknown) {
-        console.error("[sms/verify]", err instanceof Error ? err.message : err);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[sms/verify]", message);
+        logVerification({
+          route: "sms/verify",
+          dialCode,
+          phoneNumber,
+          ok: false,
+          status: 502,
+          code: errorCodeOf(err),
+          detail: message,
+        });
         set.status = 502;
         return {
           success: false as const,

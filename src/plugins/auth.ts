@@ -12,8 +12,12 @@ export const authPlugin = new Elysia({ name: "auth" })
     const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     return { bearer };
   })
-  .onBeforeHandle({ as: "scoped" }, ({ bearer, set }) => {
+  .onBeforeHandle({ as: "scoped" }, ({ bearer, request, set }) => {
     if (bearer !== config.apiSecret) {
+      console.error(
+        `[auth] unauthorized ${request.method} ${new URL(request.url).pathname} ` +
+          `(missing, malformed or invalid bearer token)`,
+      );
       set.status = 401;
       return { success: false, error: "Unauthorized" };
     }

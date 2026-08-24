@@ -12,6 +12,24 @@ import { telegramRoutes } from "./routes/telegram.js";
 await startSessionStore();
 
 const app = new Elysia()
+  // NOTE: onError must be registered before .use() mounts any routes.
+  // Elysia snapshots root hooks into plugin instances at .use() time, so an
+  // onError added afterwards never sees errors (incl. VALIDATION) thrown by
+  // route handlers defined inside plugins — they would be silently unlogged.
+  .onError(({ code, error, set }) => {
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      return { success: false, error: "Not found" };
+    }
+    if (code === "VALIDATION") {
+      console.error(`[validation] 422 ${error.message}`);
+      set.status = 422;
+      return { success: false, error: error.message };
+    }
+    console.error("[unhandled error]", error);
+    set.status = 500;
+    return { success: false, error: "Internal server error" };
+  })
   .use(
     swagger({
       path: "/swagger",
@@ -49,19 +67,6 @@ const app = new Elysia()
     if (isTelegramEnabled()) {
       await shutdownTelegramBot();
     }
-  })
-  .onError(({ code, error, set }) => {
-    if (code === "NOT_FOUND") {
-      set.status = 404;
-      return { success: false, error: "Not found" };
-    }
-    if (code === "VALIDATION") {
-      set.status = 422;
-      return { success: false, error: error.message };
-    }
-    console.error("[unhandled error]", error);
-    set.status = 500;
-    return { success: false, error: "Internal server error" };
   })
   .listen({ hostname: config.hostname, port: config.port });
 
